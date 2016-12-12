@@ -38,6 +38,5 @@ for u=1:length(fans)
     end
 end
 
-
 JtweakOptions(Jprocess);
 

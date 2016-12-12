@@ -22,7 +22,7 @@ function varargout = Jtweaker(varargin)
 
 % Edit the above text to modify the response to help Jtweaker
 
-% Last Modified by GUIDE v2.5 10-Dec-2016 21:58:58
+% Last Modified by GUIDE v2.5 20-Oct-2016 11:53:40
 % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
     gui_State = struct('gui_Name',       mfilename, ...
@@ -44,10 +44,9 @@ function varargout = Jtweaker(varargin)
 end
 
 function [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, ...
-    int_constant_ana, fraction] = calcFraction(j_params, ss_var, C1, C2)
+    int_constant_ana, fraction] = calcFraction(j_params, ss_var, C1, C2, handles)
     
-    disp(j_params);
-    jfunc = @(x) (j_params(1)*(exp(-j_params(2)*x))+j_params(3));
+    jfunc = @(x) (j_params(1)*(exp(-j_params(2)*x))+handles.jparams(3));
 
     J = arrayfun(jfunc, ss_var, 'UniformOutput', true)';
     Jprime = zeros(length(ss_var), 1);
@@ -120,8 +119,8 @@ function [ss_var, fraction, fit_x, fit_y,...
     ds_norm = ds_dist./max(ds_dist);
 
     ss = surface_data.ss;
-
-    xp = -5:.5:5;
+    
+    xp = [-4.5:.5:5];
     all_x = [];
     all_y = [];
 
@@ -130,7 +129,7 @@ function [ss_var, fraction, fit_x, fit_y,...
 
     for k=1:length(ss)
        [N,edges] = histcounts(ss{k}, xp);
-       all_x = [all_x; xp];
+       all_x = [all_x; edges];
 
        sums_total = sums_total+sum(N);
 
@@ -141,13 +140,11 @@ function [ss_var, fraction, fit_x, fit_y,...
     end
 
     field_y = bin_totals./sums_total;
-    
-    % CRITICAL
     field_x =xp(2:end);
-    
     fit_x = [];
     fit_y = [];
      CV = mean(surface_data.cv_mean);
+     
 %      CV = .7
     % Duller et al. 2010 values
     % CV = 1.11;
@@ -158,60 +155,44 @@ function [ss_var, fraction, fit_x, fit_y,...
     % C1_av = .7;
     % C2_av = .88;
     % CV = .8;
-%     C1_av = C1_mean;
-%     C2_av = C2_mean;
     
     ss_var = -5:.5:6;
     
     function fraction = fractionOnly(j_params, ss_data)
-        [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, int_constant_ana, fraction] = calcFraction(j_params, ss_data, C1_av, C2_av);
-    end
-
-    function fraction = fractionOnlyFixed(j_params, ss_data)
-        j_params = [j_params cg];
-        [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, int_constant_ana, fraction] = calcFraction(j_params, ss_data, C1_av, C2_av);
+        [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, int_constant_ana, fraction] = calcFraction(j_params, ss_data, C1_av, C2_av, handles);
     end
 
     if FIT > 0 
-        if handles.fixed_c
-            opts = optimoptions(@lsqcurvefit,'OptimalityTolerance',...
-                1e-8, 'FunctionTolerance', 1e-8);
-            [v,resnorm,residuals,exitflag,output,lambda,jacobian] = ...
-                lsqcurvefit(@fractionOnlyFixed, [ag,bg], field_x, ...
-                field_y',[1e-4 1],[1 4],opts);
-            ag = v(1);
-            bg = v(2);
-        else
-            [v,resnorm,residuals,exitflag,output,lambda,jacobian] = lsqcurvefit(@fractionOnly,[ag,bg,cg], field_x, ...
-                field_y', [1e-4,1e-4,1e-4]);            
-            ag = v(1);
-            bg = v(2);
-            cg = v(3);
-        end
-
-
+        [v,resnorm,residuals,exitflag,output,lambda,jacobian] = lsqcurvefit(@fractionOnly,[ag,bg], field_x, ...
+            field_y', [1e-4,1e-4]);
+        
+        ag = v(1);
+        bg = v(2);
+        cg = handles.jparams(3);
         
         conf = nlparci(v,residuals,'jacobian',jacobian);
         
         set(handles.a_val_slider,'Value', ag)
         set(handles.bg_val_slider,'Value', bg)
-        set(handles.cg_val_slider,'Value', cg)
         set(handles.ag_output,'String', ag)
         set(handles.bg_output,'String', bg)
-        set(handles.cg_output,'String', cg) 
         
     else
-        f = fittype('a*exp(-b*x)+c');
-        [fit1,gof,fitinfo] = fit(field_x', field_y',f,'StartPoint',[ag,bg,cg]);
-        conf = confint(fit1,0.95);
-        residuals = fitinfo.residuals;
-        jacobian = fitinfo.Jacobian;
-        resnorm = gof.rsquare;
-        conf = nlparci([ag;bg;cg],residuals,'jacobian',jacobian);
+%         f = fittype('a*exp(-b*x)+c');
+%         [fit1,gof,fitinfo] = fit(field_x', field_y',f,'StartPoint',[ag,bg,cg]);
+%         conf = confint(fit1,0.95);
+%         residuals = fitinfo.residuals;
+%         jacobian = fitinfo.Jacobian;
+%         resnorm = gof.rsquare;
+%         conf = nlparci([ag;bg;cg],residuals,'jacobian',jacobian);
+        residuals = [];
+        conf = zeros(1,3);
+        resnorm = [];
+        
     end
     
     [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, ...
-        int_constant_ana, fraction] = calcFraction([ag,bg,cg], ss_var, C1_av, C2_av);     
+        int_constant_ana, fraction] = calcFraction([ag,bg,cg], ss_var, C1_av, C2_av, handles);     
 
     saveData = struct();
     saveData.J = J;
@@ -253,10 +234,6 @@ function Jtweaker_ProbabilityPlot(handles)
     % p2 = plot(handles.fit_x, handles.fit_y, '-');
     % hold on
     p3 = plot(handles.field_x,handles.field_y, '-');
-    
-    xlabel('\xi');
-    ylabel('f');
-    
     if isstruct(handles.saveData)
         axes(handles.axes2)
         p4 = plot(handles.saveData.ss_var,handles.saveData.J, 'bx-');
@@ -269,13 +246,12 @@ function Jtweaker_ProbabilityPlot(handles)
         J = arrayfun(jfunc, handles.saveData.ss_var, 'UniformOutput', true)';
         p5 = plot(handles.saveData.ss_var, J, 'kx-');
         set(gca,'yscale','log')
-        legend('Current fit', 'North Fork Toutle River');
-        xlabel('\xi');
-        ylabel('J');
         
         axes(handles.axes3)
         p6 = plot(handles.saveData.residuals, 'bx-');
-                
+        
+        set(handles.resnorm_label,'String', handles.saveData.resnorm) 
+        
     end
 
 end
@@ -295,14 +271,19 @@ end
 function Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData)
     handles = Jtweaker_UpdateHandles(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
     guidata(handles.output, handles);
-    
+
     Jtweaker_ProbabilityPlot(handles);
 end
 
 function Jtweaker_ProcessJValues(handles)
     new_ag = get(handles.a_val_slider, 'Value');
     new_bg = get(handles.bg_val_slider, 'Value');
-    new_cg = get(handles.cg_val_slider, 'Value');
+    
+    % Enforce low cg constant
+    new_cg = handles.jparams(3);
+    
+    handles.jparams = [new_ag, new_bg, new_cg];
+    guidata(handles.output, handles);
     
     [ss, fraction, field_x, field_y,...
         fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
@@ -325,7 +306,7 @@ function Jtweaker_SaveCharts(handles)
     set(f, 'PaperSize',[X Y]);
     set(f, 'PaperPosition',[0 yMargin xSize ySize])
     set(f, 'PaperUnits','centimeters');
- 	set(f, 'Visible', 'off');
+% 	set(f, 'Visible', 'off');
     
     axes('Position',[.1 .53 .8 .4])
     p1 = plot(handles.ss,handles.fraction);
@@ -335,13 +316,13 @@ function Jtweaker_SaveCharts(handles)
         ['\bf{b} ', '\rm', num2str(handles.saveData.bg)],...
         ['\bf{c} ', '\rm', num2str(handles.saveData.cg)]};
     textLoc(paramtext, 'southwest',...
-        'FontSize', 12);
+        'FontSize', 20);
     
     ylabel('f');
-    xlabel('\xi');
+    xlabel('\xi');    
     legend([p1 p2], {'Non-linear fit', 'Field data'}, 'Location', 'northwest');
     title(['Self-similarity distrubution and fit (', strrep(handles.surface_name, '_', ' '), ')']);
-    set(gca, 'FontSize', 12);
+    set(gca, 'FontSize', 20);
     axes('Position',[.7 .7 .15 .15])
     box on
     
@@ -349,7 +330,7 @@ function Jtweaker_SaveCharts(handles)
     ylim([-0.1,0.1]);
     title('Residuals');
     textLoc(['Resnorm ',num2str(handles.saveData.resnorm)], 'northwest', ...
-        'FontSize', 8);
+        'FontSize', 20);
     
     xlabel('\xi');
     
@@ -393,7 +374,7 @@ function Jtweaker_SaveCharts(handles)
         ylabel('J');
         xlabel('\xi');
     end
-    set(gca, 'FontSize', 12);
+    set(gca, 'FontSize', 20);
 	print(f, '-dpdf',[path,file])
 
 end
@@ -411,6 +392,7 @@ handles.output = hObject;
 ag = .02;
 bg = 2;
 cg = .1;
+handles.jparams = [ag,bg,cg];
 
 % if length(varargin) == 4
 %     previous_params = varargin{4};
@@ -423,28 +405,22 @@ cg = .1;
 handles.ds_surface = varargin{1};
 handles.surface_data = varargin{2};
 handles.surface_name = varargin{3};
-handles.fixed_c = 0;
-
 set(handles.surface_title,'String', handles.surface_name)
 
 set(handles.a_val_slider,'Value', ag)
 set(handles.bg_val_slider,'Value', bg)
-set(handles.cg_val_slider,'Value', cg)
 set(handles.ag_output,'String', ag)
 set(handles.bg_output,'String', bg)
 set(handles.cg_output,'String', cg)
 
 set(handles.a_val_slider,'Min', -5)
 set(handles.bg_val_slider,'Min', -5)
-set(handles.cg_val_slider,'Min', -5)
 
 set(handles.a_val_slider,'Max', 5)
 set(handles.bg_val_slider,'Max', 5)
-set(handles.cg_val_slider,'Max', 5)
 
 set(handles.a_val_slider, 'SliderStep', [1/1000 , 10/1000 ]);
 set(handles.bg_val_slider, 'SliderStep', [1/1000 , 10/1000 ]);
-set(handles.cg_val_slider, 'SliderStep', [1/1000 , 10/1000 ]);
 % Update handles structure
 
 Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, 0);
@@ -477,15 +453,15 @@ function a_val_slider_Callback(hObject, eventdata, handles)
   set(handles.ag_output,'String', num2str(val))
   new_ag = get(handles.a_val_slider, 'Value');
   new_bg = get(handles.bg_val_slider, 'Value');
-  new_cg = get(handles.cg_val_slider, 'Value');
-    
+  new_cg = handles.jparams(3);
+  handles.jparams = [new_ag, new_bg, new_cg];
+  guidata(handles.output, handles);
+  
   [ss, fraction, field_x, field_y,...
       fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
       handles.surface_data, new_ag, new_bg, new_cg, 0);
     
-  Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
-end
-
+  Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);end
 
 % --- Executes during object creation, after setting all properties.
 function a_val_slider_CreateFcn(hObject, eventdata, handles)
@@ -509,8 +485,10 @@ function bg_val_slider_Callback(hObject, eventdata, handles)
     set(handles.bg_output,'string', num2str(val))
   new_ag = get(handles.a_val_slider, 'Value');
   new_bg = get(handles.bg_val_slider, 'Value');
-  new_cg = get(handles.cg_val_slider, 'Value');
-    
+  new_cg = handles.jparams(3);
+  handles.jparams = [new_ag, new_bg, new_cg];
+  guidata(handles.output, handles);    
+  
   [ss, fraction, field_x, field_y,...
       fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
       handles.surface_data, new_ag, new_bg, new_cg, 0);
@@ -543,7 +521,9 @@ function cg_val_slider_Callback(hObject, eventdata, handles)
   new_ag = get(handles.a_val_slider, 'Value');
   new_bg = get(handles.bg_val_slider, 'Value');
   new_cg = get(handles.cg_val_slider, 'Value');
-    
+  handles.jparams = [new_ag, new_bg, new_cg];
+  guidata(handles.output, handles);
+  
   [ss, fraction, field_x, field_y,...
       fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
       handles.surface_data, new_ag, new_bg, new_cg, 0);
@@ -568,20 +548,21 @@ function ag_output_Callback(hObject, eventdata, handles)
 % hObject    handle to ag_output (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-  ag = str2num(get(hObject,'String'));
-  cg = str2num(get(handles.cg_output,'String'));
-  bg = str2num(get(handles.bg_output,'String'));
-  
 
-  set(handles.a_val_slider, 'Value', ag);
-    
-  [ss, fraction, field_x, field_y,...
-      fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
-      handles.surface_data, ag, bg, cg, 0);
-  
-  Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
 % Hints: get(hObject,'String') returns contents of ag_output as text
 %        str2double(get(hObject,'String')) returns contents of ag_output as a double
+    ag = str2double(get(hObject,'String'));
+    bg = str2double(get(hObject.bg_output,'String'));
+    cg = str2double(get(hObject.cg_output,'String'));
+    
+    handles.jparams = [ag, bg, cg];
+    guidata(handles.output, handles);
+        
+    [ss, fraction, field_x, field_y,...
+      fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
+      handles.surface_data, ag, bg, cg, 0);
+    
+    Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
 end
 
 % --- Executes during object creation, after setting all properties.
@@ -602,20 +583,21 @@ function cg_output_Callback(hObject, eventdata, handles)
 % hObject    handle to cg_output (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-  cg = str2num(get(hObject,'String'));
-  ag = str2num(get(handles.ag_output,'String'));
-  bg = str2num(get(handles.bg_output,'String'));
-  
 
-  set(handles.cg_val_slider, 'Value', cg);
-    
-  [ss, fraction, field_x, field_y,...
-      fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
-      handles.surface_data, ag, bg, cg, 0);
-  
-  Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
 % Hints: get(hObject,'String') returns contents of cg_output as text
 %        str2double(get(hObject,'String')) returns contents of cg_output as a double
+    ag = str2double(get(handles.ag_output,'String'));
+    bg = str2double(get(handles.cg_output,'String'));
+    cg = str2double(get(hObject,'String'));
+    handles.jparams = [ag, bg, cg];
+    guidata(handles.output, handles);
+        
+    [ss, fraction, field_x, field_y,...
+      fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
+      handles.surface_data, ag, bg, cg, 0);
+    
+    Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
+  
 end
 
 % --- Executes during object creation, after setting all properties.
@@ -636,19 +618,21 @@ function bg_output_Callback(hObject, eventdata, handles)
 % hObject    handle to bg_output (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-  bg = str2num(get(hObject,'String'));
-  ag = str2num(get(handles.ag_output,'String'));
-  cg = str2num(get(handles.cg_output,'String'));
 
-  set(handles.bg_val_slider, 'Value', bg);
-    
-  [ss, fraction, field_x, field_y,...
-      fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
-      handles.surface_data, ag, bg, cg, 0);
-  
-  Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
 % Hints: get(hObject,'String') returns contents of bg_output as text
 %        str2double(get(hObject,'String')) returns contents of bg_output as a double
+    ag = str2double(get(handles.ag_output,'String'));
+    bg = str2double(get(hObject,'String'));
+    cg = str2double(get(hObject.cg_output,'String'));
+    
+    handles.jparams = [ag, bg, cg];
+    guidata(handles.output, handles);
+        
+    [ss, fraction, field_x, field_y,...
+      fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
+      handles.surface_data, ag, bg, cg, 0);
+    
+    Jtweaker_UpdateSystem(handles, ss, fraction, field_x, field_y, fit_x, fit_y, saveData);
 end
 
 % --- Executes during object creation, after setting all properties.
@@ -659,6 +643,7 @@ function bg_output_CreateFcn(hObject, eventdata, handles)
 
 % Hint: edit controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
+  
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
@@ -740,7 +725,8 @@ function save_data_btn_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 %    [file,path]  = uiputfile('*.csv', 'Save Data', handles.surface_name);
-    [file,path] = uiputfile('*.csv', 'Save Data', handles.surface_name);
+    path = ['./'  'output'];
+    file = [handles.surface_name,'.csv'];
     saveData = handles.saveData;
     a = get(handles.ag_output,'String');
     b = get(handles.bg_output,'String');
@@ -748,14 +734,15 @@ function save_data_btn_Callback(hObject, eventdata, handles)
     c1 = get(handles.c1_output,'String');
     c2 = get(handles.c2_output,'String');
     cV = get(handles.cv_output,'String');
+    disp(saveData)
     saveData.ag        = a;
     saveData.bg        = b;
     saveData.cg        = c;
     saveData.C1         = c1;
     saveData.C2         = c2;
     saveData.CV         = cV;
-    
-    struct2csv(saveData,[path file]);
+    disp([path filesep file])
+    struct2csv(saveData,[path '/' file]);
 end
 
 
@@ -789,7 +776,10 @@ function nonlinearfitbtn_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
     new_ag = get(handles.a_val_slider, 'Value');
     new_bg = get(handles.bg_val_slider, 'Value');
-    new_cg = get(handles.cg_val_slider, 'Value');
+    new_cg = handles.jparams(3);
+    
+    handles.jparams = [new_ag, new_bg, new_cg];
+    guidata(handles.output, handles);
     
     [ss, fraction, field_x, field_y,...
         fit_x, fit_y, saveData] = Jtweaker_Process(handles, handles.ds_surface, ...
@@ -808,18 +798,55 @@ function saveCharts_Callback(hObject, eventdata, handles)
 end
 
 
-% --- Executes on button press in fix_c.
-function fix_c_Callback(hObject, eventdata, handles)
-% hObject    handle to fix_c (see GCBO)
+% --- Executes on button press in cg_fix.
+function cg_fix_Callback(hObject, eventdata, handles)
+% hObject    handle to cg_fix (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-if get(hObject,'Value')
-    handles.fixed_c = 1;
-else
-    handles.fixed_c = 0;
+
+% Hint: get(hObject,'Value') returns toggle state of cg_fix
+
+
+% --- Executes on slider movement.
+function cg_slider_Callback(hObject, eventdata, handles)
+% hObject    handle to cg_slider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'Value') returns position of slider
+%        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
+
+
+% --- Executes during object creation, after setting all properties.
+function cg_slider_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to cg_slider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
 
-guidata(hObject,handles)
 
-% Hint: get(hObject,'Value') returns toggle state of fix_c
+
+function edit8_Callback(hObject, eventdata, handles)
+% hObject    handle to edit8 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit8 as text
+%        str2double(get(hObject,'String')) returns contents of edit8 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit8_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit8 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
 end

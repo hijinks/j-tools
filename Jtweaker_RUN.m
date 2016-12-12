@@ -2,7 +2,8 @@
 
 csv_dir = ['.' filesep 'data', filesep, 'jfits'];
 
-fans = fieldnames(distance_sorted);
+fan_names = fieldnames(distance_sorted);
+%fan_names = {'G8', 'G10', 'T1'};
 
 fan_data = {g8_data, g10_data, t1_data};
 
@@ -10,7 +11,7 @@ Jprocess = struct();
 
 previous_params = false;
 
-auto = 1;
+auto = 0;
 
 if exist(csv_dir, 'dir')
    dir_search = subdir(csv_dir);
@@ -42,16 +43,16 @@ end
 
 
 
-for u=1:length(fans)
-    fan_surfaces = distance_sorted.(fans{u});
+for u=1:length(fan_names)
+    fan_surfaces = distance_sorted.(fan_names{u});
     current_fan = fan_data{u};
     surfaces_names = fieldnames(fan_surfaces);
     for w=1:length(surfaces_names)
         ds_surface = fan_surfaces.(surfaces_names{w});
         surface_data = current_fan{w};
-        surface_name = [fans{u} '_' surface_data.name];
-        surface_data.('C1') = s_C1.(fans{u}).(surface_data.name);
-        surface_data.('C2') = s_C2.(fans{u}).(surface_data.name);
+        surface_name = [fan_names{u} '_' surface_data.name];
+        surface_data.('C1') = s_C1.(fan_names{u}).(surface_data.name);
+        surface_data.('C2') = s_C2.(fan_names{u}).(surface_data.name);
         
         if isstruct(previous_params)
             if isfield(previous_params,surface_name)
