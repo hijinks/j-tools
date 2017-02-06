@@ -162,7 +162,9 @@ function [ss_var, fraction, fit_x, fit_y,...
 %     C2_av = C2_mean;
     
     ss_var = -5:.5:6;
-    
+    ag_range = [];
+    bg_range = [];
+        
     function fraction = fractionOnly(j_params, ss_data)
         [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, int_constant_ana, fraction] = calcFraction(j_params, ss_data, C1_av, C2_av);
     end
@@ -172,10 +174,9 @@ function [ss_var, fraction, fit_x, fit_y,...
         [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, int_constant_ana, fraction] = calcFraction(j_params, ss_data, C1_av, C2_av);
     end
 
-    if FIT > 0 
+    if FIT > 0
+
         if handles.fixed_c
-            %opts = optimoptions(@lsqcurvefit,'OptimalityTolerance',...
-            %    1e-8, 'FunctionTolerance', 1e-8);
             [v,resnorm,residuals,exitflag,output,lambda,jacobian] = ...
                 lsqcurvefit(@fractionOnlyFixed, [ag,bg], field_x, ...
                 field_y',[1e-4 1],[1 4]);
@@ -189,9 +190,50 @@ function [ss_var, fraction, fit_x, fit_y,...
             cg = v(3);
         end
 
-
-        
         conf = nlparci(v,residuals,'jacobian',jacobian);
+        lower = conf(:,1);
+        upper = conf(:,2);
+        
+        if handles.fixed_c
+            for l=1:2 
+                for m=1:2
+                    if m > 1
+                        if l == 1
+                            x0 = [upper(1), bg];
+                            lb = [upper(1) lower(2)];
+                            ub = [upper(1) upper(2)];
+                        end
+
+                        if l == 2
+                            x0 = [ag, upper(2)];
+                            lb = [lower(1) upper(2)];
+                            ub = [upper(1) upper(2)];
+                        end
+
+                    else
+
+                        if l == 1
+                            x0 = [lower(1), bg];
+                            lb = [lower(1) lower(2)];
+                            ub = [lower(1) upper(2)];
+                        end
+
+                        if l == 2
+                            x0 = [ag, lower(2)];
+                            lb = [lower(1) lower(2)];
+                            ub = [upper(1) lower(2)];
+                        end
+                    end
+
+                    [v,resnorm,residuals,exitflag,output,lambda,jacobian] = ...
+                        lsqcurvefit(@fractionOnlyFixed, [x0, cg], field_x, ...
+                        field_y',[1e-4 1],[1 4]);
+
+                    ag_range = [ag_range; v(1)];
+                    bg_range = [bg_range; v(2)];
+                end
+            end
+        end
         
         set(handles.a_val_slider,'Value', ag)
         set(handles.bg_val_slider,'Value', bg)
@@ -208,6 +250,8 @@ function [ss_var, fraction, fit_x, fit_y,...
         jacobian = fitinfo.Jacobian;
         resnorm = gof.rsquare;
         conf = nlparci([ag;bg;cg],residuals,'jacobian',jacobian);
+        lower = conf(:,1);
+        upper = conf(:,2);
     end
     
     [J, Jprime, phi, sym, expsym, intsysmeps, sigma, int_val, ...
@@ -238,6 +282,8 @@ function [ss_var, fraction, fit_x, fit_y,...
     saveData.CV = CV;
     saveData.upper = conf(:,1);
     saveData.lower = conf(:,2);
+    saveData.ag_range = ag_range;
+    saveData.bg_range = bg_range;
         
     set(handles.c1_output, 'String', C1_av);
     set(handles.c2_output, 'String', C2_av);
