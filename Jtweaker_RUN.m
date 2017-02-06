@@ -51,8 +51,8 @@ for u=1:length(fan_names)
         ds_surface = fan_surfaces.(surfaces_names{w});
         surface_data = current_fan{w};
         surface_name = [fan_names{u} '_' surface_data.name];
-        surface_data.('C1') = s_C1.(fan_names{u}).(surface_data.name);
-        surface_data.('C2') = s_C2.(fan_names{u}).(surface_data.name);
+        %surface_data.('C1') = s_C1.(fan_names{u}).(surface_data.name);
+        %surface_data.('C2') = s_C2.(fan_names{u}).(surface_data.name);
         
         if isstruct(previous_params)
             if isfield(previous_params,surface_name)
