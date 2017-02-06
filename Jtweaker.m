@@ -197,6 +197,13 @@ function [ss_var, fraction, fit_x, fit_y,...
         if handles.fixed_c
             for l=1:2 
                 for m=1:2
+                    
+                    % Routine
+                    % High Ag
+                    % High Bg
+                    % Low Ag
+                    % Low Bg
+                    
                     if m > 1
                         if l == 1
                             x0 = [upper(1), bg];
