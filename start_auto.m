@@ -4,7 +4,6 @@ fans = fieldnames(output_gs);
 
 Jprocess = struct();
 
-
 previous_params = false;
 
 auto = 0;

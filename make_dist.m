@@ -35,9 +35,9 @@ for w=1:n
     d3 = [d3, normrnd(mu,stev)];
 end
 
-mu = 20;
+mu = 6;
 
-stev = 10;
+stev = 3;
 
 n = 100;
 
